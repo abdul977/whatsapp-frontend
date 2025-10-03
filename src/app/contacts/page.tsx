@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getContacts, Contact as ApiContact } from '@/lib/api';
+import { useAppStore } from '@/store/useAppStore';
+import { getContacts, getAccounts, Contact as ApiContact, Account as ApiAccount } from '@/lib/api';
 import { 
   MagnifyingGlassIcon,
   PlusIcon,
@@ -168,16 +169,39 @@ export default function ContactsPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const accounts = useAppStore((state) => state.accounts);
+  const currentAccount = useAppStore((state) => state.currentAccount);
+  const setAccounts = useAppStore((state) => state.setAccounts);
+  const switchAccount = useAppStore((state) => state.switchAccount);
+  const selectedAccountId = currentAccount?.id;
 
-  // Load contacts on component mount
   useEffect(() => {
-    loadContacts();
-  }, []);
+    const loadAccounts = async () => {
+      try {
+        const response = await getAccounts();
+        if (response.status === 'success' && response.accounts) {
+          setAccounts(response.accounts);
+          if (response.accounts.length > 0 && !useAppStore.getState().currentAccount) {
+            switchAccount(response.accounts[0].id);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load accounts:', error);
+      }
+    };
+    loadAccounts();
+  }, [setAccounts, switchAccount]);
 
-  const loadContacts = async () => {
+  useEffect(() => {
+    if (selectedAccountId) {
+      loadContacts(selectedAccountId);
+    }
+  }, [selectedAccountId]);
+
+  const loadContacts = async (accountId: string) => {
     try {
       setLoading(true);
-      const response = await getContacts();
+      const response = await getContacts(accountId);
       if (response.status === 'success' && response.contacts) {
         const uiContacts = response.contacts.map(convertApiContactToUIContact);
         setContacts(uiContacts);
@@ -207,9 +231,10 @@ export default function ContactsPage() {
   };
 
   const handleContactAdded = () => {
-    loadContacts(); // Refresh the contact list
+    if (selectedAccountId) {
+      loadContacts(selectedAccountId); // Refresh the contact list
+    }
   };
-
   const handleEditContact = (contact: Contact) => {
     console.log('Edit contact:', contact);
   };
@@ -233,13 +258,26 @@ export default function ContactsPage() {
           <p className="text-gray-600">Manage your WhatsApp contacts and conversations</p>
         </div>
         
-        <button
-          onClick={handleAddContact}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-        >
-          <PlusIcon className="h-4 w-4 mr-2" />
-          Add Contact
-        </button>
+        <div className="flex items-center space-x-4">
+          <select
+            value={selectedAccountId || ''}
+            onChange={(e) => switchAccount(e.target.value)}
+            className="p-2 border border-gray-300 rounded-lg"
+          >
+            {accounts.map((account) => (
+              <option key={account.id} value={account.id}>
+                {account.name}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={handleAddContact}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+          >
+            <PlusIcon className="h-4 w-4 mr-2" />
+            Add Contact
+          </button>
+        </div>
       </div>
 
       {/* Filters and Search */}
@@ -251,7 +289,7 @@ export default function ContactsPage() {
             placeholder="Search contacts..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-500 focus:ring-2 focus:ring-green-500 focus:border-transparent"
           />
         </div>
 
@@ -378,6 +416,8 @@ export default function ContactsPage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onContactAdded={handleContactAdded}
+        accounts={accounts}
+        selectedAccountId={selectedAccountId}
       />
     </div>
   );

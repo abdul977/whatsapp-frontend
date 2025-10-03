@@ -44,7 +44,7 @@ api.interceptors.response.use(
 export interface Message {
   id: string;
   phone_number: string;
-  message_text: string;
+  text: string;
   sender_type: 'incoming' | 'outgoing';
   timestamp: string;
   message_id?: string;
@@ -59,6 +59,7 @@ export interface Contact {
   last_message_time?: string;
   last_message_type?: string;
   message_count: number;
+  unread_count?: number;
   account_id?: string;
 }
 
@@ -75,7 +76,8 @@ export interface SendMessageRequest {
   to: string;
   message: string;
   type?: 'text' | 'template';
-  account_id?: string;
+  business_id?: string;
+  phone_id?: string;
 }
 
 export interface SendMessageResponse {
@@ -100,6 +102,22 @@ export interface ContactsResponse {
   contacts?: Contact[];
   count?: number;
   account_id?: string;
+  message?: string;
+}
+
+export interface AccountsResponse {
+  status: 'success' | 'error';
+  accounts?: Account[];
+  count?: number;
+  message?: string;
+}
+
+export interface MessagesResponse {
+  status: 'success' | 'error';
+  messages?: Message[];
+  count?: number;
+  account_id?: string;
+  phone_number?: string;
   message?: string;
 }
 
@@ -128,7 +146,7 @@ export const sendMessageFromAccount = async (
 export const getMessages = async (
   phoneNumber: string, 
   accountId?: string
-): Promise<ApiResponse<Message[]>> => {
+): Promise<MessagesResponse> => {
   const params = accountId ? { account_id: accountId } : {};
   const response = await api.get(`/api/messages/${phoneNumber}`, { params });
   return response.data;
@@ -155,7 +173,7 @@ export const getAccountContacts = async (accountId: string): Promise<ApiResponse
 };
 
 // Accounts
-export const getAccounts = async (): Promise<ApiResponse<Account[]>> => {
+export const getAccounts = async (): Promise<AccountsResponse> => {
   const response = await api.get('/api/accounts');
   return response.data;
 };

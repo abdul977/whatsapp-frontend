@@ -2,6 +2,8 @@ import { io, Socket } from 'socket.io-client';
 import { useAppStore } from '@/store/useAppStore';
 import { Message } from './api';
 
+const normalizePhoneNumber = (value: string) => value.replace(/[^0-9]/g, '');
+
 class WebSocketManager {
   private socket: Socket | null = null;
   private reconnectAttempts = 0;
@@ -101,19 +103,26 @@ class WebSocketManager {
       console.log('📨 New message received:', data);
       
       const { addMessage, addContact, currentAccount } = useAppStore.getState();
+      console.log('currentAccount in store:', currentAccount);
       
       // Only process messages for the current account
       if (!currentAccount || data.account_id !== currentAccount.id) {
+        console.log('Message ignored because account does not match');
         return;
       }
 
       // Add message to store
-      addMessage(data.phone_number, data.message);
+      const normalizedPhone = normalizePhoneNumber(data.phone_number);
+      const messagePayload: Message = {
+        ...data.message,
+        phone_number: data.message.phone_number || data.phone_number,
+      };
+      addMessage(normalizedPhone, messagePayload);
 
       // Update or add contact
       addContact({
         phone_number: data.phone_number,
-        last_message: data.message.message_text,
+        last_message: data.message.text,
         last_message_time: data.message.timestamp,
         message_count: 1, // This would be updated by a proper API call
         account_id: data.account_id
@@ -124,7 +133,7 @@ class WebSocketManager {
         useAppStore.getState().addNotification({
           type: 'info',
           title: 'New Message',
-          message: `From ${data.phone_number}: ${data.message.message_text.substring(0, 50)}${data.message.message_text.length > 50 ? '...' : ''}`
+          message: `From ${data.phone_number}: ${data.message.text.substring(0, 50)}${data.message.text.length > 50 ? '...' : ''}`
         });
       }
     });
@@ -256,3 +265,4 @@ export const useWebSocket = () => {
 };
 
 export default WebSocketManager;
+
